@@ -1,0 +1,118 @@
+import compression from 'compression';
+import cors from 'cors';
+import type { Application, NextFunction, Request, Response } from 'express';
+import express from 'express';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import path from 'path';
+import swaggerUi from 'swagger-ui-express';
+import config from './src/config';
+import { swaggerSpec } from './src/config/swagger';
+import { connectDB } from './src/helpers/db';
+import { validateApiKey } from './src/middlewares/apiKey';
+import { errorHandler, notFoundHandler } from './src/middlewares/errorHandler';
+import authRoutes from './src/routes/auth.routes';
+import categoryRoutes from './src/routes/category.routes';
+import healthRouter from './src/routes/health';
+import notificationRoutes from './src/routes/notification.routes';
+import subscriptionRoutes from './src/routes/subscription.routes';
+import wallpaperRoutes from './src/routes/wallpaper.routes';
+import { CustomError } from './src/utils/customError';
+import logger from './src/utils/logger';
+
+// Connect to DB using an IIFE
+(async () => {
+  try {
+    await connectDB(config.databaseString);
+    console.log('Database connected successfully from app.ts IIFE');
+  } catch (error) {
+    console.error('Failed to connect to the database from app.ts IIFE:', error);
+    // In a serverless environment, the app might still start up and handle
+    // requests that don't need a DB, or Vercel might show an error page.
+    // It's important to check Vercel logs for this error.
+  }
+})();
+
+const app: Application = express();
+
+// Security middleware
+app.use(helmet());
+
+// Compression middleware
+app.use(compression());
+
+// Request logging
+app.use(
+  morgan('combined', {
+    stream: { write: (message) => logger.info(message.trim()) },
+  }),
+);
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiting to all routes
+app.use(limiter);
+
+// CORS configuration
+app.use(
+  cors({
+    origin: [config.clientUrl || ''],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }),
+);
+
+// Serve static files
+app.use(express.static(path.join(__dirname, '../public')));
+
+// API Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Root route
+app.get('/', (_req: Request, res: Response) => {
+  res.status(200).json({
+    success: true,
+    message: 'Wallpaper API is Running! 🏃',
+    version: process.env.npm_package_version || '1.0.0',
+    documentation: '/api-docs',
+  });
+});
+
+// Apply API key middleware to all API routes
+app.use('/v1/api', validateApiKey);
+
+// API routes
+app.use('/v1/api/auth', authRoutes);
+app.use('/v1/api/wallpapers', wallpaperRoutes);
+app.use('/v1/api/categories', categoryRoutes);
+app.use('/v1/api/health', healthRouter);
+app.use('/v1/api/subscriptions', subscriptionRoutes);
+app.use('/v1/api/notifications', notificationRoutes);
+
+// Request timeout handling
+app.use((req: Request, res: Response, next: NextFunction) => {
+  req.setTimeout(30000, () => {
+    const error = new CustomError('Request Timeout', 408);
+    next(error);
+  });
+  next();
+});
+
+// Error handling
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+export default app;
