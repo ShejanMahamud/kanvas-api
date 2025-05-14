@@ -21,6 +21,36 @@ import wallpaperRoutes from './src/routes/wallpaper.routes';
 import { CustomError } from './src/utils/customError';
 import logger from './src/utils/logger';
 
+// --- BEGIN Global Error Handlers ---
+process.on('unhandledRejection', (reason: unknown, promise) => {
+  if (reason instanceof Error) {
+    logger.error('CRITICAL: Unhandled Rejection (Error instance):', {
+      promise,
+      message: reason.message,
+      name: reason.name,
+      stack: reason.stack,
+    });
+  } else {
+    logger.error('CRITICAL: Unhandled Rejection (Non-Error):', {
+      promise,
+      reason,
+    });
+  }
+  // Optionally, you might want to exit the process here in a serverless env
+  // process.exit(1);
+});
+
+process.on('uncaughtException', (error: Error) => {
+  logger.error('CRITICAL: Uncaught Exception:', {
+    message: error.message,
+    name: error.name,
+    stack: error.stack,
+  });
+  // Vercel will likely terminate the function, but logging is key.
+  // process.exit(1); // Ensure process exits to signal Vercel function error
+});
+// --- END Global Error Handlers ---
+
 // Connect to DB using an IIFE
 (async () => {
   try {
@@ -35,6 +65,16 @@ import logger from './src/utils/logger';
 })();
 
 const app: Application = express();
+
+// --- BEGIN Initial Request Logging ---
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  logger.info(`Incoming Request: ${req.method} ${req.originalUrl}`, {
+    headers: req.headers,
+    body: req.body,
+  });
+  next();
+});
+// --- END Initial Request Logging ---
 
 // Security middleware
 app.use(helmet());
@@ -66,14 +106,14 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // CORS configuration
-app.use(
-  cors({
-    origin: [config.clientUrl || ''],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  }),
-);
+const corsOptions = {
+  origin: [config.clientUrl || ''], // Default to empty string if not set, as per original
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+logger.info('CORS Options Configured:', corsOptions);
+app.use(cors(corsOptions));
 
 // Serve static files
 app.use(express.static(path.join(__dirname, '../public')));
