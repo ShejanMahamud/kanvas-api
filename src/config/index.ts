@@ -25,7 +25,7 @@ const config: Config = {
   databaseString: process.env.MONGO_URI || '',
   clientUrl: process.env.CLIENT_URL || '',
   jwtSecret: process.env.ACCESS_TOKEN || '',
-  apiKey: process.env.API_KEY || '',
+  apiKey: process.env.API_KEY || 'K-2025',
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
     apiKey: process.env.CLOUDINARY_API_KEY || '',
