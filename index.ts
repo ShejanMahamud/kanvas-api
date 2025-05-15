@@ -66,6 +66,10 @@ process.on('uncaughtException', (error: Error) => {
 
 const app: Application = express();
 
+// Trust the first hop for X-Forwarded-For header (Vercel proxy)
+// This is important for express-rate-limit and other IP-dependent middleware.
+app.set('trust proxy', 1);
+
 // --- BEGIN Initial Request Logging ---
 app.use((req: Request, _res: Response, next: NextFunction) => {
   logger.info(`Incoming Request: ${req.method} ${req.originalUrl}`, {
