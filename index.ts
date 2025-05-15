@@ -122,7 +122,6 @@ app.use(cors(corsOptions));
 app.use(express.static(path.join(__dirname, '../public')));
 
 // API Documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Root route
 app.get('/', (_req: Request, res: Response) => {
@@ -134,16 +133,15 @@ app.get('/', (_req: Request, res: Response) => {
   });
 });
 
-// Apply API key middleware to all API routes
-app.use('/v1/api', validateApiKey);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // API routes
-app.use('/v1/api/auth', authRoutes);
-app.use('/v1/api/wallpapers', wallpaperRoutes);
-app.use('/v1/api/categories', categoryRoutes);
-app.use('/v1/api/health', healthRouter);
-app.use('/v1/api/subscriptions', subscriptionRoutes);
-app.use('/v1/api/notifications', notificationRoutes);
+app.use('/v1/api/auth',validateApiKey, authRoutes);
+app.use('/v1/api/wallpapers',validateApiKey, wallpaperRoutes);
+app.use('/v1/api/categories',validateApiKey, categoryRoutes);
+app.use('/v1/api/health',validateApiKey, healthRouter);
+app.use('/v1/api/subscriptions', validateApiKey,subscriptionRoutes);
+app.use('/v1/api/notifications', validateApiKey,notificationRoutes);
 
 // Request timeout handling
 app.use((req: Request, res: Response, next: NextFunction) => {
