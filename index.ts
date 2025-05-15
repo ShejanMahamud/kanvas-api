@@ -55,7 +55,6 @@ process.on('uncaughtException', (error: Error) => {
 (async () => {
   try {
     await connectDB(config.databaseString);
-    console.log('Database connected successfully from app.ts IIFE');
   } catch (error) {
     console.error('Failed to connect to the database from app.ts IIFE:', error);
     // In a serverless environment, the app might still start up and handle
@@ -158,5 +157,20 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // Error handling
 app.use(notFoundHandler);
 app.use(errorHandler);
+
+// Start the server only if not in a serverless environment (e.g., local development)
+// Vercel handles the server listening part automatically for the exported app.
+if (
+  process.env.VERCEL_ENV !== 'production' &&
+  process.env.NODE_ENV !== 'production'
+) {
+  const port = config.port;
+  app.listen(port, () => {
+    logger.info(`🚀 Server is running locally on http://localhost:${port}`);
+    logger.info(
+      `📚 API documentation available at http://localhost:${port}/api-docs`,
+    );
+  });
+}
 
 export default app;
