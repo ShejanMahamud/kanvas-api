@@ -133,6 +133,13 @@ app.get('/', (_req: Request, res: Response) => {
   });
 });
 
+app.get('/test', (_req: Request, res: Response) => {
+  res.status(200).json({
+    success: true,
+    message: 'test API is Running! 🏃'
+  });
+});
+
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // API routes
